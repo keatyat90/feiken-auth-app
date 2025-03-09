@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 
 import productRoutes from './api/routes/productRoutes';
+import emailRoutes from './api/routes/emailRoutes';
 
 dotenv.config();
 
@@ -26,8 +27,11 @@ mongoose.connect(process.env.MONGO_URI!, {
   process.exit(1);
 });
 
+app.use(express.json({ limit: "10mb" })); // Allow large JSON payloads
+
 // API Routes
-app.use('/api/products', productRoutes);
+app.use('/api/products', productRoutes);// Allow large JSON payloads for Base64 images
+app.use("/api/send-email", emailRoutes);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {

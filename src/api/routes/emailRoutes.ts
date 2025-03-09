@@ -1,8 +1,10 @@
-import { Router } from 'express';
-import { sendEmail } from '../controllers/emailController';
+import express from "express";
+import { sendEmail } from "../controllers/emailController"; // Ensure correct path
 
-const router = Router();
+const router = express.Router();
 
-router.post('/send', sendEmail);
+router.post("/send-email", (req, res, next) => {
+    sendEmail(req, res).catch(next);
+  });
 
 export default router;
