@@ -6,6 +6,7 @@ import helmet from 'helmet';
 
 import productRoutes from './api/routes/productRoutes';
 import emailRoutes from './api/routes/emailRoutes';
+import bodyParser from 'body-parser';
 
 dotenv.config();
 
@@ -27,7 +28,13 @@ mongoose.connect(process.env.MONGO_URI!, {
   process.exit(1);
 });
 
-app.use(express.json({ limit: '10mb' })); 
+// ✅ Increase payload size limit
+app.use(express.json({ limit: "50mb" }));  // Increase limit to 50MB
+app.use(express.urlencoded({ limit: "50mb", extended: true })); // Increase URL-encoded data limit
+
+// ✅ Increase payload limit for `body-parser`
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 // API Routes
 app.use('/api/products', productRoutes);
