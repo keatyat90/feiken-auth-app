@@ -15,6 +15,7 @@ const session = require('express-session');
 dotenv.config();
 
 const app = express();
+app.use(cors({ origin: process.env.COMPANY_URL || 'http://localhost:3000', credentials: true }));
 
 // Middleware
 app.use(express.json());
