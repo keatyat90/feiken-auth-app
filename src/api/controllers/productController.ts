@@ -1,19 +1,19 @@
 import { Request, Response } from "express";
 import Product, { IProduct } from "../models/Product";
-import ScanLog, { IScanLog } from "../models/ScanLog";
+import ScanLog from "../models/ScanLog";
 
 // Verify Product Authenticity
 export const verifyProduct = async (req: Request, res: Response) => {
-  const { qr_code_id } = req.body;
+  const { qr_code_id, device_id } = req.body;
 
   try {
     const product: IProduct | null = await Product.findOne({ qr_code_id });
 
     if (!product) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Invalid QR Code", 
-        product: null 
+        message: "Invalid QR Code",
+        product: null,
       });
     }
 
@@ -37,16 +37,21 @@ export const verifyProduct = async (req: Request, res: Response) => {
     product.verification_status = "Already Scanned";
     await product.save();
 
-    // Log Scan Event
-    const scanLog: IScanLog = await ScanLog.create({
-      qr_code_id,
-    });
+    // Check if the device has scanned this QR code before
+    let scanLog = await ScanLog.findOne({ qr_code_id, device_id });
 
+    if (scanLog) {
+      scanLog.scan_count += 1;
+      scanLog.scanned_at = new Date();
+    } else {
+      scanLog = new ScanLog({ qr_code_id, device_id, scan_count: 1 });
+    }
+
+    await scanLog.save();
     res.json({
-      success: true,
       message: "QR Code Verified!",
       product,
-      scanLog,
+      scan_count: scanLog.scan_count,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -56,25 +61,18 @@ export const verifyProduct = async (req: Request, res: Response) => {
 // Get Scan History
 export const scanHistory = async (req: Request, res: Response) => {
   try {
-    const logs: IScanLog[] = await ScanLog.find({
-      qr_code_id: req.params.qr_code_id,
-    });
+    const { device_id } = req.params;
+    const logs = await ScanLog.find({ device_id });
 
-    if (logs.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No scan history found for this QR code.",
-        logs: [],
-      });
+    if (!logs.length) {
+      return res
+        .status(404)
+        .json({ message: "No scan history found for this device." });
     }
 
-    res.json({
-      success: true,
-      message: "Scan history retrieved successfully.",
-      logs,
-    });
+    res.json({ logs });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 

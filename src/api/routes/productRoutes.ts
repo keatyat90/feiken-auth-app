@@ -15,7 +15,7 @@ router.post("/verify", (req, res) => {
   });
 });
 
-router.get("/scan-history/:qr_code_id", (req, res) => {
+router.get("/scan-history/:device_id", (req, res) => {
   scanHistory(req, res).catch((error) => {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });

@@ -1,13 +1,11 @@
+
 import mongoose from "mongoose";
 
-export interface IScanLog extends mongoose.Document {
-    qr_code_id: string;
-    scanned_at: Date;
-}
-
-const ScanLogSchema = new mongoose.Schema<IScanLog>({
+const ScanLogSchema = new mongoose.Schema({
     qr_code_id: { type: String, required: true },
+    device_id: { type: String, required: true },  // Tracks which device scanned it
     scanned_at: { type: Date, default: Date.now },
+    scan_count: { type: Number, default: 1 },    // Increment count when scanned again
 });
 
-export default mongoose.model<IScanLog>("ScanLog", ScanLogSchema);
+export default mongoose.model("ScanLog", ScanLogSchema);
