@@ -5,8 +5,6 @@ export interface IProduct extends Document {
   name: string;
   description?: string;
   manufacturer?: string;
-  productionDate?: Date;
-  expiryDate?: Date;
   batchNumber?: string;
   verified: boolean;
   createdAt: Date;
@@ -18,8 +16,6 @@ const ProductSchema: Schema = new Schema({
   name: { type: String, required: true },
   description: { type: String },
   manufacturer: { type: String },
-  productionDate: { type: Date },
-  expiryDate: { type: Date },
   batchNumber: { type: String },
   verified: { type: Boolean, default: true },
 }, {
