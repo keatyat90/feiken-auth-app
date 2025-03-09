@@ -3,60 +3,52 @@ import Product, { IProduct } from "../models/Product";
 import ScanLog from "../models/ScanLog";
 
 // Verify Product Authenticity
+// Verify Product Authenticity and Log Scan
 export const verifyProduct = async (req: Request, res: Response) => {
-  const { qr_code_id, device_id } = req.body;
-
-  try {
-    const product: IProduct | null = await Product.findOne({ qr_code_id });
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid QR Code",
-        product: null,
+    const { qr_code_id, device_id } = req.body;
+  
+    try {
+      const product: IProduct | null = await Product.findOne({ qr_code_id });
+  
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: "Invalid QR Code",
+          product: null,
+        });
+      }
+  
+      if (product.verification_status === "Fake") {
+        return res.json({
+          success: false,
+          message: "Fake QR Code Detected!",
+          product,
+        });
+      }
+  
+      // Check the previous scan count for this QR Code and Device ID
+      const lastScan = await ScanLog.findOne({ qr_code_id, device_id }).sort({ scanned_at: -1 });
+  
+      let newScanCount = lastScan ? lastScan.scan_count + 1 : 1;
+  
+      // Create a new scan log entry
+      const scanLog = await ScanLog.create({
+        qr_code_id,
+        device_id,
+        scanned_at: new Date(),
+        scan_count: newScanCount, // Increment count
       });
-    }
-
-    if (product.verification_status === "Fake") {
-      return res.json({
-        success: false,
-        message: "Fake QR Code Detected!",
+  
+      res.json({
+        success: true,
+        message: "QR Code Verified!",
         product,
+        scan_log: scanLog, // Return the latest scan log
       });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
-
-    if (product.verification_status === "Already Scanned") {
-      return res.json({
-        success: false,
-        message: "This QR Code has already been scanned!",
-        product,
-      });
-    }
-
-    // Mark as Scanned if first-time scan
-    product.verification_status = "Already Scanned";
-    await product.save();
-
-    // Check if the device has scanned this QR code before
-    let scanLog = await ScanLog.findOne({ qr_code_id, device_id });
-
-    if (scanLog) {
-      scanLog.scan_count += 1;
-      scanLog.scanned_at = new Date();
-    } else {
-      scanLog = new ScanLog({ qr_code_id, device_id, scan_count: 1 });
-    }
-
-    await scanLog.save();
-    res.json({
-      message: "QR Code Verified!",
-      product,
-      scan_count: scanLog.scan_count,
-    });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
+  };
 
 // Get Scan History
 export const scanHistory = async (req: Request, res: Response) => {
