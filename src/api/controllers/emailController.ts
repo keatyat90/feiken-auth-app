@@ -1,27 +1,38 @@
-import { Request, Response } from 'express';
-import transporter from '../../utils/emailTransporter';
+import { Request, Response } from "express";
+import transporter from "../../utils/emailTransporter";
 
 export const sendEmail = async (req: Request, res: Response) => {
-  const { email, subject, body, images } = req.body;
-
-  const attachments = images.map((image: string, index: number) => ({
-    filename: `image_${index}.jpg`,
-    content: image.split(',')[1],
-    encoding: 'base64',
-  }));
-
   try {
-    await transporter.sendMail({
+    const { email, subject, body, images } = req.body;
+
+    if (!email || !subject || !body || !images || images.length === 0) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    console.log("📧 Sending email to:", email);
+
+    const attachments = images.map((image: string, index: number) => ({
+      filename: `image_${index}.jpg`,
+      content: image.split(',')[1], // Extract Base64 content
+      encoding: "base64",
+    }));
+
+    const mailOptions = {
       from: process.env.SMTP_USER,
       to: email,
-      subject,
+      subject: subject,
       text: body,
-      attachments,
-    });
+      attachments: attachments,
+    };
 
-    res.json({ success: true, message: 'Email sent successfully.' });
+    console.log("📨 Sending email with attachments:", attachments.length);
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Email sent successfully:", info.messageId);
+
+    res.json({ success: true, message: "Email sent successfully!" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Failed to send email.' });
+    console.error("❌ Error sending email:", error);
+    res.status(500).json({ success: false, message: "Failed to send email." });
   }
 };
