@@ -1,20 +1,17 @@
-import { Request, Response } from "express";
-import { IProduct } from "../models/Product";
-const fs = require('fs');
-const archiver = require('archiver');
-const { Parser } = require('json2csv');
-const express = require('express');
-const QRCode = require('qrcode');
-const Product = require('../models/Product');
+import archiver from 'archiver';
+import { Parser } from 'json2csv';
+import express from 'express';
+import QRCode from 'qrcode';
+import Product from '../models/Product';
 
 const router = express.Router();
 
 // Generate QR Code for a product
-router.get('/export/csv', async (req: Request, res: Response) => {
+router.get('/export/csv', async (req, res) => {
   try {
     const products = await Product.find();
     const csvFields = ['QR_ID', 'Product_ID', 'SKU', 'BatchNumber', 'ManufactureDate', 'VerificationStatus', 'EncodedURL'];
-    const csvData = products.map((product: IProduct) => ({
+    const csvData = products.map((product) => ({
       QR_ID: product.qr_code_id,
       Product_ID: product.product_id,
       SKU: product.sku,
@@ -36,7 +33,7 @@ router.get('/export/csv', async (req: Request, res: Response) => {
 });
 
 // Export QR Codes to ZIP (Images)
-router.get('/export/zip', async (req: Request, res: Response) => {
+router.get('/export/zip', async (req, res) => {
   try {
     const products = await Product.find();
     const zip = archiver('zip', { zlib: { level: 9 } });

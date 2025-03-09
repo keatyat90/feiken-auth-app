@@ -7,14 +7,11 @@ import helmet from 'helmet';
 import productRoutes from './api/routes/productRoutes';
 import emailRoutes from './api/routes/emailRoutes';
 import bodyParser from 'body-parser';
-import authRoutes from './api/routes/authRoutes';
 import qrRoutes from './api/routes/qrRoutes';
+import userRoutes from './api/routes/userRoutes';
 
 const passport = require('passport');
 const session = require('express-session');
-require('./config/passport'); // Google OAuth strategy setup
-
-
 dotenv.config();
 
 const app = express();
@@ -51,10 +48,10 @@ app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 // API Routes
-app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use("/api/send-email", emailRoutes);
 app.use('/api/qrcodes', qrRoutes);
+app.use('/api/users', userRoutes);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
