@@ -7,6 +7,13 @@ import helmet from 'helmet';
 import productRoutes from './api/routes/productRoutes';
 import emailRoutes from './api/routes/emailRoutes';
 import bodyParser from 'body-parser';
+import authRoutes from './api/routes/authRoutes';
+import qrRoutes from './api/routes/qrRoutes';
+
+const passport = require('passport');
+const session = require('express-session');
+require('./config/passport'); // Google OAuth strategy setup
+
 
 dotenv.config();
 
@@ -17,6 +24,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use(helmet());
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI!, {
@@ -37,8 +51,10 @@ app.use(bodyParser.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use("/api/send-email", emailRoutes);
+app.use('/api/qrcodes', qrRoutes);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
