@@ -3,7 +3,7 @@ import { sendEmail } from "../controllers/emailController"; // Ensure correct pa
 
 const router = express.Router();
 
-router.post("/send-email", (req, res, next) => {
+router.post("/", (req, res, next) => {
     sendEmail(req, res).catch(next);
   });
 
