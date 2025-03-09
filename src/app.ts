@@ -4,7 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 
-import productRoutes from '../src/api/routes/productRoutes';
+import productRoutes from './api/routes/productRoutes';
 
 dotenv.config();
 
