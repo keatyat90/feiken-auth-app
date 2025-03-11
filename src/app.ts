@@ -26,7 +26,6 @@ app.use(
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
 app.use(helmet());
 app.use(
   session({
@@ -37,6 +36,17 @@ app.use(
 );
 app.use(passport.initialize());
 app.use(passport.session());
+
+// ✅ Allow CORS for your frontend
+const allowedOrigins = [process.env.FRONTEND_URL || "https://feiken-authenticity-admin-panel.vercel.app"];
+app.use(
+  cors({
+    origin: allowedOrigins, // ✅ Allow only Vercel frontend
+    credentials: true, // ✅ Allow cookies & authentication headers
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 // MongoDB connection
 mongoose
