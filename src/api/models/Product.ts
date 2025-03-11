@@ -10,11 +10,11 @@ export interface IProduct extends Document {
 }
 
 const ProductSchema = new mongoose.Schema<IProduct>({
-  product_id: { type: String, required: true },
+  product_id: { type: String },
   qr_code_id: { type: String, required: true, unique: true },
-  sku: { type: String, required: true },
-  batch_number: { type: String, required: true },
-  manufacture_date: { type: Date, required: true },
+  sku: { type: String },
+  batch_number: { type: String },
+  manufacture_date: { type: Date },
   verification_status: { type: String, enum: ["Authentic", "Fake", "Already Scanned"], default: "Authentic" },
 });
 export default mongoose.model<IProduct>('Product', ProductSchema);

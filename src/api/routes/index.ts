@@ -11,5 +11,4 @@ router.use('/emails', emailRoutes);
 router.use('/users', userRoutes);
 router.use('/qrcodes', qrRoutes);
 
-
 export default router;

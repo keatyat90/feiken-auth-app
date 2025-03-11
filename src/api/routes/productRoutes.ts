@@ -1,8 +1,11 @@
 import express from "express";
 import {
+  deleteProduct,
   getProducts,
+  getProductsStats,
   registerProduct,
   scanHistory,
+  updateProduct,
   verifyProduct,
 } from "../controllers/productController";
 
@@ -30,9 +33,30 @@ router.post("/register-product", async (req, res, next) => {
     next(error);
   }
 });
+router.delete("/:qr_code_id", async (req, res, next) => {
+  try {
+    await deleteProduct(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+router.put("/:qr_code_id", async (req, res, next) => {
+  try {
+    await updateProduct(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
 router.get("/", async (req, res, next) => {
   try {
     await getProducts(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
+router.get("/stats", async (req, res, next) => {
+  try {
+    await getProductsStats(req, res);
   } catch (error) {
     next(error);
   }

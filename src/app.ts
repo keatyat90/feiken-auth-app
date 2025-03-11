@@ -9,7 +9,7 @@ import emailRoutes from "./api/routes/emailRoutes";
 import bodyParser from "body-parser";
 import qrRoutes from "./api/routes/qrRoutes";
 import userRoutes from "./api/routes/userRoutes";
-import authMiddleware from "./api/routes/authMiddleware";
+import authMiddleware from "./api/controllers/authMiddleware";
 
 const passport = require("passport");
 const session = require("express-session");
@@ -61,6 +61,7 @@ app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use("/api/send-email", emailRoutes);
 app.use("/api/qrcodes", qrRoutes);
 app.use("/api/products", authMiddleware, productRoutes); // Protected
+app.use("/api/users/login", userRoutes); 
 app.use("/api/users", authMiddleware, userRoutes); // Protected
 
 // Root endpoint
