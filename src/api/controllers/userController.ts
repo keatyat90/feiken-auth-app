@@ -32,7 +32,6 @@ export const loginCredential = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    console.log("user:", user);
 
     if (!user) {
       return res.status(400).json({ msg: "Invalid credentials" });
@@ -50,7 +49,6 @@ export const loginCredential = async (req: Request, res: Response) => {
         return res.status(500).json({ msg: "Error generating token" });
       }
 
-      console.log("✅ Token sent to client:", token); // Debug log
       res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
     });
   } catch (err) {
