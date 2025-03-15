@@ -3,7 +3,7 @@ import { loginCredential } from "../controllers/userController";
 
 const router = express.Router();
 
-router.post("/", (req, res, next) => {
+router.post("/login", (req, res, next) => {
   loginCredential(req, res).catch(next);
 });
 
