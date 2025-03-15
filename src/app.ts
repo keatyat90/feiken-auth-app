@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import helmet from "helmet";
 import passport from "passport";
 import session from "express-session";
+import bodyParser from "body-parser";
 
 import productRoutes from "./api/routes/productRoutes";
 import emailRoutes from "./api/routes/emailRoutes";
@@ -16,7 +17,7 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORS Configuration (Allow Only Your Frontend)
+// ✅ CORS Configuration
 const allowedOrigins = [
   "http://localhost:3001",
   process.env.FRONTEND_URL || "https://feiken-authenticity-admin-panel.vercel.app",
@@ -35,15 +36,15 @@ app.use(
 app.use(helmet());
 
 // ✅ Express Middleware
-app.use(express.json({ limit: "50mb" })); // ✅ Increased payload size
+app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// ✅ Session & Passport Middleware (Needed for authentication)
+// ✅ Session & Passport Middleware
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "supersecret",
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false, // ✅ Improved security
   })
 );
 app.use(passport.initialize());
@@ -64,7 +65,10 @@ mongoose
 app.use("/api/send-email", emailRoutes);
 app.use("/api/qrcodes", qrRoutes);
 app.use("/api/products", authMiddleware, productRoutes); // ✅ Protected
-app.use("/api/users", userRoutes); // ✅ Login & Signup are public
+app.use("/api/users", userRoutes); // ✅ Public access to login/register
+
+// ✅ Ensure Login is Public
+app.post("/api/users/login", userRoutes);
 
 // ✅ Health Check
 app.get("/health", (req: Request, res: Response) => {
