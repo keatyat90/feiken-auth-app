@@ -9,7 +9,7 @@ import bodyParser from "body-parser";
 
 import productRoutes from "./api/routes/productRoutes";
 import emailRoutes from "./api/routes/emailRoutes";
-import qrRoutes from "./api/routes/qrRoutes";
+// import qrRoutes from "./api/routes/qrRoutes";
 import userRoutes from "./api/routes/userRoutes";
 import authMiddleware from "./api/controllers/authMiddleware";
 
@@ -19,7 +19,6 @@ const app = express();
 
 // ✅ CORS Configuration
 const allowedOrigins = [
-  "http://localhost:3001",
   process.env.FRONTEND_URL || "https://feiken-authenticity-admin-panel.vercel.app",
 ];
 
@@ -63,7 +62,7 @@ mongoose
 
 // ✅ API Routes
 app.use("/api/send-email", emailRoutes);
-app.use("/api/qrcodes", qrRoutes);
+// app.use("/api/qrcodes", qrRoutes);
 app.use("/api/products", authMiddleware, productRoutes); // ✅ Protected
 app.use("/api/users", userRoutes); // ✅ Public access to login/register
 

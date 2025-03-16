@@ -1,20 +1,20 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document } from "mongoose";
 
 export interface IProduct extends Document {
   product_id: string;
-  qr_code_id: string;
-  sku: string;
   batch_number: string;
-  manufacture_date: Date;
-  verification_status: "Authentic" | "Fake" | "Already Scanned";
+  qr_codes: { qr_code_id: string; verification_status: string }[];
 }
 
-const ProductSchema = new mongoose.Schema<IProduct>({
-  product_id: { type: String },
-  qr_code_id: { type: String, required: true, unique: true },
-  sku: { type: String },
-  batch_number: { type: String },
-  manufacture_date: { type: Date },
-  verification_status: { type: String, enum: ["Authentic", "Fake", "Already Scanned"], default: "Authentic" },
+const ProductSchema: Schema = new Schema({
+  product_id: { type: String, required: true },
+  batch_number: { type: String, required: true },
+  qr_codes: [
+    {
+      qr_code_id: { type: String, required: true, unique: true },
+      verification_status: { type: String, default: "Pending" }, // Possible values: Pending, Verified, Fake
+    },
+  ],
 });
-export default mongoose.model<IProduct>('Product', ProductSchema);
+
+export default mongoose.model<IProduct>("Product", ProductSchema);
