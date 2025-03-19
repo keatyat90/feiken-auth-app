@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import Product from "../models/Product";
 import { v4 as uuidv4 } from "uuid";
+import { ScanLog } from "../models/ScanLog";
 
 // Get All Products (Admin use)
 export const getProducts = async (req: Request, res: Response) => {
@@ -103,37 +104,56 @@ export const generateQRCodes = async (
 };
 
 // ✅ Verify a Product (Update QR Code Status)
-export const verifyProduct = async (
-  req: Request,
-  res: Response
-) => {
+export const verifyProduct = async (req: Request, res: Response) => {
+  console.log("🔑 Verifying QR Code:", req.params.qr_code_id);
+
   try {
     const { qr_code_id } = req.params;
+    const { device_id } = req.body;
 
-    const product = await Product.findOne({
-      "qr_codes.qr_code_id": qr_code_id,
-    });
-
-    if (!product) {
-      return res
-        .status(404)
-        .json({ success: false, message: "QR Code not found" });
-    }
-
-    product.qr_codes = product.qr_codes.map((qr) =>
-      qr.qr_code_id === qr_code_id
-        ? { ...qr, verification_status: "Verified" }
-        : qr
+    // ✅ Ensure the QR Code exists in a product
+    const product = await Product.findOne(
+      { "qr_codes.qr_code_id": qr_code_id },
+      { product_id: 1, batch_number: 1, "qr_codes.$": 1 }
     );
 
-    await product.save();
-    return res
-      .status(200)
-      .json({ success: true, message: "Product verified successfully" });
+    if (!product) {
+      return res.status(404).json({ success: false, message: "QR Code not found" });
+    }
+
+    // ✅ Check if this device has scanned this QR code before
+    let scanLog = await ScanLog.findOne({ qr_code_id, device_id });
+
+    if (scanLog) {
+      scanLog.scan_count += 1; // Increment scan count
+    } else {
+      scanLog = new ScanLog({ qr_code_id, device_id, product_id: product.product_id, scan_count: 1 });
+    }
+
+    await scanLog.save(); // ✅ Save scan log
+
+    // ✅ Update product status if scanned more than 5 times
+    const updatedStatus = scanLog.scan_count > 5 ? "Scanned" : product.qr_codes[0].verification_status;
+
+    await Product.updateOne(
+      { "qr_codes.qr_code_id": qr_code_id },
+      { $set: { "qr_codes.$.verification_status": updatedStatus } }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Product verified successfully",
+      product,
+      scan_log: scanLog,
+    });
   } catch (error: any) {
+    console.error("❌ Error in verifyProduct:", error);
     return res.status(500).json({ success: false, message: error.message });
-  } 
+  }
 };
+
+
+
 
 // ✅ Delete a Product
 export const deleteProduct = async (
@@ -227,27 +247,16 @@ export const updateProduct = async (req: Request, res: Response) => {
 
 
 // ✅ Get Scan History
-export const getScanHistory = async (
-  req: Request,
-  res: Response,
-) => {
+export const getScanHistory = async (req: Request, res: Response) => {
   try {
-    const { product_id } = req.params;
+    const { device_id } = req.params;
 
-    const product = await Product.findOne({ product_id });
+    const logs = await ScanLog.find({ device_id }).sort({ scanned_at: -1 });
 
-    if (!product) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-    }
-
-    return res
-      .status(200)
-      .json({ success: true, scan_history: product.qr_codes });
+    return res.status(200).json({ success: true, logs });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
-  } 
+  }
 };
 
 // ✅ Get Product Stats

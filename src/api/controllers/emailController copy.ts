@@ -8,6 +8,7 @@ export const sendEmail = async (req: Request, res: Response) => {
     if (!email || !subject || !body || !images || images.length === 0) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
+
     console.log("📧 Sending email to:", email);
 
     // Attach images using URLs

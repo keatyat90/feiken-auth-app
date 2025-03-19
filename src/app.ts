@@ -19,7 +19,12 @@ const app = express();
 
 // ✅ CORS Configuration
 const allowedOrigins = [
-  process.env.FRONTEND_URL || "https://feiken-authenticity-admin-panel.vercel.app",
+  process.env.FRONTEND_URL || "" ,
+  "http://localhost:5001", // Allow local API calls
+  "http://192.168.0.103:5001", // Replace with your actual IP
+  "exp://localhost:19000", // Expo Go development
+  "exp://192.168.0.103:19000", // Expo Local Network
+  "*", // Allow all origins for testing
 ];
 
 app.use(
@@ -63,7 +68,8 @@ mongoose
 // ✅ API Routes
 app.use("/api/send-email", emailRoutes);
 // app.use("/api/qrcodes", qrRoutes);
-app.use("/api/products", authMiddleware, productRoutes); // ✅ Protected
+// app.use("/api/products", authMiddleware, productRoutes); // ✅ Protected
+app.use("/api/products", productRoutes); // ✅ Protected
 app.use("/api/users", userRoutes); // ✅ Public access to login/register
 
 // ✅ Ensure Login is Public

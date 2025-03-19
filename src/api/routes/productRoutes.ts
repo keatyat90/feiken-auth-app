@@ -23,7 +23,7 @@ router.put("/verify/:qr_code_id", verifyProduct as any);
 router.delete("/:product_id/:batch_number", deleteProduct as any);
 router.delete("/:product_id/:batch_number/qr/:qr_code_id", deleteQR as any);
 router.put("/:product_id/:batch_number", updateProduct as any);
-router.get("/:product_id/scan-history", getScanHistory as any);
+router.get("/scan-history/:device_id", getScanHistory as any);
 router.get("/search", searchProducts as any);
 
 export default router;
