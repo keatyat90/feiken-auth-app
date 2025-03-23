@@ -21,9 +21,9 @@ const app = express();
 const allowedOrigins = [
   process.env.FRONTEND_URL || "" ,
   "http://localhost:5001", // Allow local API calls
-  "http://192.168.0.103:5001", // Replace with your actual IP
+  "http://192.168.0.102:5001", // Replace with your actual IP
   "exp://localhost:19000", // Expo Go development
-  "exp://192.168.0.103:19000", // Expo Local Network
+  "exp://192.168.0.102:19000", // Expo Local Network
   "*", // Allow all origins for testing
 ];
 

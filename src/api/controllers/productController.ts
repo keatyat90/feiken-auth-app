@@ -1,109 +1,190 @@
-import { NextFunction, Request, Response } from "express";
-import Product from "../models/Product";
-import { v4 as uuidv4 } from "uuid";
+import { Request, Response } from "express";
+import Product, { IProduct } from "../models/Product";
+import QRCode, { IQRCode } from "../models/QRCode";
 import { ScanLog } from "../models/ScanLog";
+import mongoose from "mongoose";
 
-// Get All Products (Admin use)
-export const getProducts = async (req: Request, res: Response) => {
-  try {
-    const products = await Product.find();
-
-    if (products.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No products found.",
-        products: [],
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Products retrieved successfully.",
-      products,
-    });
-  } catch (error) {
-    console.error("Fetch error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
-  }
-};
-
-// ✅ Create a New Product
-export const createProduct = async (req: Request, res: Response) => {
-  try {
-    const { product_id, batch_number, qr_codes } = req.body;
-
-    if (!qr_codes || qr_codes.length === 0) {
-      return res.status(400).json({ success: false, message: "QR codes are required." });
-    }
-
-    // ✅ Create a single product with multiple QR codes
-    const newProduct = new Product({
-      product_id,
-      batch_number,
-      qr_codes: qr_codes.map((qr_code: { qr_code_id: string }) => ({
-        qr_code_id: qr_code.qr_code_id,
-        verification_status: "Pending",
-      })),
-    });
-
-    await newProduct.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Product created successfully",
-      product: newProduct,
-    });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-
-// ✅ Generate QR Codes for a Product
-export const generateQRCodes = async (
+// Create a new Product
+export const createProduct = async (
   req: Request,
   res: Response
-) => {
-  try {
-    const { product_id } = req.params;
-    const { batch_number, count } = req.body;
-
-    if (!count || count <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid QR code count" });
-    }
-
-    const product = await Product.findOne({ product_id, batch_number });
-
-    if (!product) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-    }
-
-    const newQRCodes = Array.from({ length: count }, () => ({
-      qr_code_id: uuidv4(),
-      verification_status: "Pending",
-    }));
-
-    product.qr_codes.push(...newQRCodes);
-    await product.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "QR Codes generated",
-      qr_codes: newQRCodes,
-    });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
-  } 
+): Promise<Response> => {
+  const product: IProduct = new Product(req.body);
+  await product.save();
+  return res.status(201).json(product);
 };
 
-// ✅ Verify a Product (Update QR Code Status)
+// Get all Products
+export const getProducts = async (
+  _req: Request,
+  res: Response
+): Promise<Response> => {
+  const products = await Product.find();
+  return res.json(products);
+};
+
+// Get Product by ID
+export const getProductById = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ message: "Product not found" });
+  return res.json(product);
+};
+
+// Update Product
+export const updateProduct = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+  });
+  if (!product) return res.status(404).json({ message: "Product not found" });
+  return res.json(product);
+};
+
+// Delete Product
+export const deleteProduct = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const product = await Product.findByIdAndDelete(req.params.id);
+  if (!product) return res.status(404).json({ message: "Product not found" });
+  await QRCode.deleteMany({ product: req.params.id });
+  return res.json({
+    message: "Product and associated QR codes deleted successfully",
+  });
+};
+
+// Create a QRCode for Product
+export const createQRCodeForProduct = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const qrCode: IQRCode = new QRCode({
+    ...req.body,
+    product: req.params.productId,
+  });
+  await qrCode.save();
+  return res.status(201).json(qrCode);
+};
+
+// Get QR codes for a specific Product
+export const getQRCodesByProductId = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { productId } = req.params;
+  const limit = parseInt(req.query.limit as string) || 20;
+  const page = parseInt(req.query.page as string) || 1;
+
+  const qrCodes = await QRCode.find({ product: productId })
+    .skip((page - 1) * limit)
+    .limit(limit);
+
+  const total = await QRCode.countDocuments({ product: productId });
+
+  return res.json({ qrCodes, total });
+};
+
+// ✅ Update QR Codes for existing Product
+export const updateQRCodesForProduct = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const { id: productId } = req.params;
+  const { qr_codes } = req.body;
+
+  if (!Array.isArray(qr_codes)) {
+    return res.status(400).json({ message: "Invalid QR codes data." });
+  }
+
+  try {
+    // Remove existing QR codes associated with the product
+    await QRCode.deleteMany({ product: productId });
+
+    // Insert new QR codes
+    const qrCodesToInsert = qr_codes.map((qr: { qr_code_id: string }) => ({
+      product: productId,
+      qr_code_id: qr.qr_code_id,
+      scan_count: 0,
+    }));
+
+    await QRCode.insertMany(qrCodesToInsert);
+
+    return res.json(qrCodesToInsert);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to update QR codes." });
+  }
+};
+
+export const searchProducts = async (req: Request, res: Response): Promise<Response> => {
+  const {
+    product_id,
+    batch_number,
+    country_origin,
+    qr_code_id,
+    scan_count_min,
+    scan_count_max,
+    page = 1,
+    limit = 10,
+  } = req.query;
+
+  const productFilter: any = {};
+  const qrFilter: any = {};
+
+  if (product_id) productFilter.product_id = { $regex: product_id, $options: "i" };
+  if (batch_number) productFilter.batch_number = { $regex: batch_number, $options: "i" };
+  if (country_origin) productFilter.country_origin = country_origin;
+
+  if (qr_code_id) qrFilter.qr_code_id = { $regex: qr_code_id, $options: "i" };
+  if (scan_count_min || scan_count_max) {
+    qrFilter.scan_count = {};
+    if (scan_count_min) qrFilter.scan_count.$gte = Number(scan_count_min);
+    if (scan_count_max) qrFilter.scan_count.$lte = Number(scan_count_max);
+  }
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  try {
+    let matchingProductIds: mongoose.Types.ObjectId[] = [];
+
+    if (Object.keys(qrFilter).length > 0) {
+      // Find matching QR codes first if QR code filters exist
+      const matchingQRCodes = await QRCode.find(qrFilter).select("product").lean();
+      matchingProductIds = matchingQRCodes.map((qr) => qr.product);
+      // Ensure product filter includes these matching product IDs
+      productFilter._id = { $in: matchingProductIds };
+    }
+
+    // Count total after applying QR code filters
+    const total = await Product.countDocuments(productFilter);
+
+    // Apply pagination directly to filtered products
+    const products = await Product.find(productFilter).skip(skip).limit(Number(limit)).lean();
+
+    // Fetch related QR codes for each paginated product
+    const productsWithQRCodes = await Promise.all(
+      products.map(async (product) => {
+        const qrCodes = await QRCode.find({
+          product: product._id,
+          ...qrFilter,
+        }).lean();
+
+        return { ...product, qr_codes: qrCodes };
+      })
+    );
+
+    return res.json({ products: productsWithQRCodes, total });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to search products" });
+  }
+};
+
+// // ✅ Verify a Product (Update QR Code Status)
 export const verifyProduct = async (req: Request, res: Response) => {
   console.log("🔑 Verifying QR Code:", req.params.qr_code_id);
 
@@ -111,34 +192,36 @@ export const verifyProduct = async (req: Request, res: Response) => {
     const { qr_code_id } = req.params;
     const { device_id } = req.body;
 
-    // ✅ Ensure the QR Code exists in a product
-    const product = await Product.findOne(
-      { "qr_codes.qr_code_id": qr_code_id },
-      { product_id: 1, batch_number: 1, "qr_codes.$": 1 }
-    );
-
-    if (!product) {
+    // ✅ Find QR code in QRCode collection
+    const qrCode = await QRCode.findOne({ qr_code_id });
+    if (!qrCode) {
       return res.status(404).json({ success: false, message: "QR Code not found" });
+    }
+
+    // ✅ Get related product
+    const product = await Product.findById(qrCode.product);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found for QR code" });
     }
 
     // ✅ Check if this device has scanned this QR code before
     let scanLog = await ScanLog.findOne({ qr_code_id, device_id });
-
     if (scanLog) {
-      scanLog.scan_count += 1; // Increment scan count
+      scanLog.scan_count += 1;
     } else {
-      scanLog = new ScanLog({ qr_code_id, device_id, product_id: product.product_id, scan_count: 1 });
+      scanLog = new ScanLog({
+        qr_code_id,
+        device_id,
+        product_id: product.product_id,
+        scanned_at: new Date(),
+        scan_count: 1,
+      });
     }
+    await scanLog.save();
 
-    await scanLog.save(); // ✅ Save scan log
-
-    // ✅ Update product status if scanned more than 5 times
-    const updatedStatus = scanLog.scan_count > 5 ? "Scanned" : product.qr_codes[0].verification_status;
-
-    await Product.updateOne(
-      { "qr_codes.qr_code_id": qr_code_id },
-      { $set: { "qr_codes.$.verification_status": updatedStatus } }
-    );
+    // ✅ Update QRCode scan count
+    qrCode.scan_count = scanLog.scan_count;
+    await qrCode.save();
 
     return res.status(200).json({
       success: true,
@@ -153,182 +236,25 @@ export const verifyProduct = async (req: Request, res: Response) => {
 };
 
 
-
-
-// ✅ Delete a Product
-export const deleteProduct = async (
+// Record scan for a QRCode
+export const recordQRCodeScan = async (
   req: Request,
   res: Response
-) => {
-  try {
-    const { product_id, batch_number } = req.params;
+): Promise<Response> => {
+  const { device_id } = req.body;
+  const qrCode = await QRCode.findOne({ qr_code_id: req.params.qrCodeId });
+  if (!qrCode) return res.status(404).json({ message: "QR Code not found" });
 
-    const deletedProduct = await Product.findOneAndDelete({ product_id, batch_number });
+  qrCode.scan_count += 1;
+  await qrCode.save();
 
-    if (!deletedProduct) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-    }
+  const scanLog = new ScanLog({
+    qr_code_id: qrCode.qr_code_id,
+    product_id: qrCode.product,
+    device_id,
+    scanned_at: new Date(),
+  });
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Product deleted successfully" });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
-  } 
+  await scanLog.save();
+  return res.json(scanLog);
 };
-
-// ✅ Delete a specific QR Code from a Product
-export const deleteQR = async (req: Request, res: Response) => {
-  try {
-    const { product_id, batch_number, qr_code_id } = req.params;
-
-    const product = await Product.findOne({ product_id, batch_number });
-
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-
-    // ✅ Remove only the selected QR code
-    product.qr_codes = product.qr_codes.filter(qr => qr.qr_code_id !== qr_code_id);
-
-    // ✅ If no QR codes left, delete the entire product
-    if (product.qr_codes.length === 0) {
-      await Product.deleteOne({ product_id });
-      return res.status(200).json({ success: true, message: "Product and all QR Codes deleted" });
-    }
-
-    await product.save();
-    return res.status(200).json({ success: true, message: "QR Code deleted successfully" });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// ✅ Update a Product
-export const updateProduct = async (req: Request, res: Response) => {
-  try {
-    const { product_id } = req.params;
-    const { batch_number, qr_codes } = req.body;
-
-    if (!qr_codes || !Array.isArray(qr_codes)) {
-      return res.status(400).json({ success: false, message: "Invalid QR codes format." });
-    }
-
-    const product = await Product.findOne({ product_id });
-
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-
-    // ✅ Fully replace `qr_codes` to prevent duplicate key errors
-    await Product.updateOne(
-      { product_id },
-      {
-        $set: {
-          batch_number,
-          qr_codes: qr_codes.map(qr => ({
-            qr_code_id: qr.qr_code_id,
-            verification_status: qr.verification_status || "Pending",
-          })),
-        },
-      }
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Product updated successfully",
-    });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-
-// ✅ Get Scan History
-export const getScanHistory = async (req: Request, res: Response) => {
-  try {
-    const { device_id } = req.params;
-
-    const logs = await ScanLog.find({ device_id }).sort({ scanned_at: -1 });
-
-    return res.status(200).json({ success: true, logs });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// ✅ Get Product Stats
-export const getProductStats = async (_req: Request, res: Response) => {
-  try {
-    const totalProducts = await Product.countDocuments();
-
-    const qrCodeAggregation = await Product.aggregate([
-      { $unwind: { path: "$qr_codes", preserveNullAndEmptyArrays: true } },
-      { $group: { _id: null, totalQRCodes: { $sum: 1 } } },
-    ]);
-
-    const totalQRCodes = qrCodeAggregation.length > 0 ? qrCodeAggregation[0].totalQRCodes : 0;
-
-    return res.status(200).json({
-      success: true,
-      stats: {
-        totalProducts,
-        totalQRCodes,
-      },
-    });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const searchProducts = async (req: Request, res: Response) => {
-  try {
-    const { product_id, batch_number, qr_code_id, verification_status, lastId, limit = 10, latest = false } = req.query;
-
-    let filter: any = {};
-
-    // ✅ Apply individual filters based on request parameters
-    if (product_id) {
-      filter.product_id = { $regex: new RegExp(product_id as string, "i") };
-    }
-    if (batch_number) {
-      filter.batch_number = { $regex: new RegExp(batch_number as string, "i") };
-    }
-    if (qr_code_id) {
-      filter["qr_codes.qr_code_id"] = { $regex: new RegExp(qr_code_id as string, "i") };
-    }
-    if (verification_status) {
-      filter["qr_codes.verification_status"] = verification_status;
-    }
-
-    // ✅ If no filters are applied, fetch the latest created/updated products
-    if (latest && !product_id && !batch_number && !qr_code_id && !verification_status) {
-      filter = {};
-    }
-
-    // ✅ If `lastId` is provided, use `_id` for efficient pagination
-    if (lastId) {
-      filter._id = { $lt: lastId };
-    }
-
-    const products = await Product.find(filter)
-      .sort(latest ? { updatedAt: -1 } : { _id: -1 }) // ✅ Sort by latest updated/created or `_id`
-      .limit(Number(limit));
-
-    const totalResults = await Product.countDocuments(filter);
-
-    return res.status(200).json({
-      success: true,
-      totalResults,
-      totalPages: Math.ceil(totalResults / Number(limit)),
-      currentPage: Number(lastId) ? Math.ceil(totalResults / Number(limit)) : 1,
-      lastId: products.length ? products[products.length - 1]._id : null,
-      products,
-    });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
