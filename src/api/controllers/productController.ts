@@ -4,6 +4,23 @@ import QRCode, { IQRCode } from "../models/QRCode";
 import { ScanLog } from "../models/ScanLog";
 import mongoose from "mongoose";
 
+export const getProductStats = async (req: Request, res: Response) => {
+  try {
+    const totalProducts = await Product.countDocuments();
+    const totalQRCodes = await QRCode.countDocuments();
+
+    res.json({
+      stats: {
+        totalProducts,
+        totalQRCodes,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting product stats:", error);
+    res.status(500).json({ message: "Server error fetching product stats" });
+  }
+};
+
 // Create a new Product
 export const createProduct = async (
   req: Request,
@@ -120,14 +137,16 @@ export const updateQRCodesForProduct = async (
   }
 };
 
-export const searchProducts = async (req: Request, res: Response): Promise<Response> => {
+export const searchProducts = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   const {
     product_id,
     batch_number,
     country_origin,
     qr_code_id,
-    scan_count_min,
-    scan_count_max,
+    verification_status,
     page = 1,
     limit = 10,
   } = req.query;
@@ -135,16 +154,13 @@ export const searchProducts = async (req: Request, res: Response): Promise<Respo
   const productFilter: any = {};
   const qrFilter: any = {};
 
-  if (product_id) productFilter.product_id = { $regex: product_id, $options: "i" };
-  if (batch_number) productFilter.batch_number = { $regex: batch_number, $options: "i" };
+  if (product_id)
+    productFilter.product_id = { $regex: product_id, $options: "i" };
+  if (batch_number)
+    productFilter.batch_number = { $regex: batch_number, $options: "i" };
   if (country_origin) productFilter.country_origin = country_origin;
-
+  if (verification_status) qrFilter.verification_status = verification_status;
   if (qr_code_id) qrFilter.qr_code_id = { $regex: qr_code_id, $options: "i" };
-  if (scan_count_min || scan_count_max) {
-    qrFilter.scan_count = {};
-    if (scan_count_min) qrFilter.scan_count.$gte = Number(scan_count_min);
-    if (scan_count_max) qrFilter.scan_count.$lte = Number(scan_count_max);
-  }
 
   const skip = (Number(page) - 1) * Number(limit);
 
@@ -153,7 +169,9 @@ export const searchProducts = async (req: Request, res: Response): Promise<Respo
 
     if (Object.keys(qrFilter).length > 0) {
       // Find matching QR codes first if QR code filters exist
-      const matchingQRCodes = await QRCode.find(qrFilter).select("product").lean();
+      const matchingQRCodes = await QRCode.find(qrFilter)
+        .select("product")
+        .lean();
       matchingProductIds = matchingQRCodes.map((qr) => qr.product);
       // Ensure product filter includes these matching product IDs
       productFilter._id = { $in: matchingProductIds };
@@ -163,7 +181,10 @@ export const searchProducts = async (req: Request, res: Response): Promise<Respo
     const total = await Product.countDocuments(productFilter);
 
     // Apply pagination directly to filtered products
-    const products = await Product.find(productFilter).skip(skip).limit(Number(limit)).lean();
+    const products = await Product.find(productFilter)
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
 
     // Fetch related QR codes for each paginated product
     const productsWithQRCodes = await Promise.all(
@@ -192,19 +213,20 @@ export const verifyProduct = async (req: Request, res: Response) => {
     const { qr_code_id } = req.params;
     const { device_id } = req.body;
 
-    // ✅ Find QR code in QRCode collection
     const qrCode = await QRCode.findOne({ qr_code_id });
     if (!qrCode) {
-      return res.status(404).json({ success: false, message: "QR Code not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "QR Code not found" });
     }
 
-    // ✅ Get related product
     const product = await Product.findById(qrCode.product);
     if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found for QR code" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found for QR code" });
     }
 
-    // ✅ Check if this device has scanned this QR code before
     let scanLog = await ScanLog.findOne({ qr_code_id, device_id });
     if (scanLog) {
       scanLog.scan_count += 1;
@@ -219,15 +241,25 @@ export const verifyProduct = async (req: Request, res: Response) => {
     }
     await scanLog.save();
 
-    // ✅ Update QRCode scan count
+    // Update QRCode scan count
     qrCode.scan_count = scanLog.scan_count;
+
+    // Set verification status based on scan count
+    if (scanLog.scan_count > 20) {
+      qrCode.verification_status = 3;
+    } else if (scanLog.scan_count >= 11) {
+      qrCode.verification_status = 2;
+    } else {
+      qrCode.verification_status = 1;
+    }
+
     await qrCode.save();
 
     return res.status(200).json({
       success: true,
       message: "Product verified successfully",
       product,
-      scan_log: scanLog,
+      qrCode,
     });
   } catch (error: any) {
     console.error("❌ Error in verifyProduct:", error);
@@ -235,26 +267,32 @@ export const verifyProduct = async (req: Request, res: Response) => {
   }
 };
 
+export const getScanHistoryByDevice = async (req: Request, res: Response) => {
+  const { device_id } = req.params;
 
-// Record scan for a QRCode
-export const recordQRCodeScan = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
-  const { device_id } = req.body;
-  const qrCode = await QRCode.findOne({ qr_code_id: req.params.qrCodeId });
-  if (!qrCode) return res.status(404).json({ message: "QR Code not found" });
+  try {
+    const logs = await ScanLog.find({ device_id })
+      .sort({ scanned_at: -1 })
+      .lean();
 
-  qrCode.scan_count += 1;
-  await qrCode.save();
+    const result = await Promise.all(
+      logs.map(async (log) => {
+        const qr = await QRCode.findOne({ qr_code_id: log.qr_code_id }).lean();
+        const product = qr ? await Product.findById(qr.product).lean() : null;
 
-  const scanLog = new ScanLog({
-    qr_code_id: qrCode.qr_code_id,
-    product_id: qrCode.product,
-    device_id,
-    scanned_at: new Date(),
-  });
+        return {
+          ...log,
+          batch_number: product?.batch_number || null,
+          verification_status: qr?.verification_status || null,
+        };
+      })
+    );
 
-  await scanLog.save();
-  return res.json(scanLog);
+    return res.status(200).json({ success: true, logs: result });
+  } catch (error) {
+    console.error("❌ Error fetching scan history:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch scan history" });
+  }
 };
