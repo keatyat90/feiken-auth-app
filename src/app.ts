@@ -65,7 +65,7 @@ mongoose
   });
 
 // ✅ API Routes
-app.use("/api/send-email", emailRoutes);
+// app.use("/api/send-email", emailRoutes);
 // app.use("/api/qrcodes", qrRoutes);
 // app.use("/api/products", authMiddleware, productRoutes); // ✅ Protected
 app.use("/api/products", productRoutes); // ✅ Protected
