@@ -57,7 +57,7 @@ const env = process.env.NODE_ENV || "development";
 dotenv.config({ path: `.env.${env}` });
 
 console.log("🔧 Loaded ENV:", env);
-console.log("🌍 MONGO_URI:", process.env.MONGO_URI); 
+console.log("🌍 DB_NAME:", process.env.DB_NAME); 
 
 // ✅ MongoDB Connection
 mongoose
