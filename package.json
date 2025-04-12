@@ -43,6 +43,7 @@
   },
   "name": "feiken-auth-backend",
   "version": "1.0.0",
+  "main": "dist/app.js",
   "keywords": [],
   "author": "",
   "license": "ISC",
