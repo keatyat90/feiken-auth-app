@@ -5,6 +5,7 @@
     "start": "node dist/app.js"
   },
   "dependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "archiver": "^7.0.1",
     "bcryptjs": "^3.0.2",
     "body-parser": "^1.20.3",
