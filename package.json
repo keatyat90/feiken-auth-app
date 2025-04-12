@@ -2,7 +2,8 @@
   "scripts": {
     "dev": "ts-node src/app.ts",
     "build": "tsc",
-    "start": "node dist/app.js"
+    "start": "node dist/app.js",
+    "postinstall": "yarn build"
   },
   "dependencies": {
     "archiver": "^7.0.1",
