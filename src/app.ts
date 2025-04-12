@@ -53,6 +53,9 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+const env = process.env.NODE_ENV || "development";
+dotenv.config({ path: `.env.${env}` });
+
 // ✅ MongoDB Connection
 mongoose
   .connect(process.env.MONGO_URI!, {
