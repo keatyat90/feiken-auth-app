@@ -53,7 +53,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-const env = process.env.NODE_ENV || "production";
+const env = process.env.NODE_ENV;
 dotenv.config({ path: `.env.${env}` });
 
 console.log("🔧 Loaded ENV:", env);
