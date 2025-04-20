@@ -8,13 +8,20 @@ const router = express.Router();
 // Hardcoded Admin User (Ensure this runs once on app start)
 const initializeAdmin = async () => {
   try {
-    let admin = await User.findOne({ email: 'admin@example.com' });
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword) {
+      throw new Error('Missing ADMIN_EMAIL or ADMIN_PASSWORD env variable');
+    }
+
+    let admin = await User.findOne({ email: adminEmail });
     if (!admin) {
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash('Admin@123', salt);
+      const hashedPassword = await bcrypt.hash(adminPassword, salt);
       admin = new User({ 
         name: 'Admin', 
-        email: 'admin@example.com', 
+        email: adminEmail, 
         password: hashedPassword, 
         role: 'admin' 
       });
